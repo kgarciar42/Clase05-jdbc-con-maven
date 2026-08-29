@@ -13,11 +13,19 @@ CREATE TABLE IF NOT EXISTS estudiantes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     carnet VARCHAR(20) NOT NULL UNIQUE
+    activo BOOLEAN NOT NULL DEFAULT 1,
+    tipo VARCHAR(20) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE
 );
+
+
+
 
 -- INSERT IGNORE: si el carnet ya existe (por ejemplo porque ya corriste este script
 -- antes) MySQL ignora esa fila en lugar de lanzar un error de duplicado.
-INSERT IGNORE INTO estudiantes (nombre, carnet) VALUES
-    ('Ana Lopez', '2024001'),
-    ('Carlos Perez', '2024002'),
-    ('Maria Gonzalez', '2024003');
+INSERT IGNORE INTO estudiantes (nombre, carnet, activo, tipo, email) VALUES
+    ('Ana Lopez', '2024001', 1, 'Pregrado', 'ana@gmail.com'),
+    ('Carlos Perez', '2024002', 1, 'Pregrado', 'carlos@gmail.com'),
+    ('Maria Gonzalez', '2024003', 0, 'Postgrado', 'maria@gmail.com');
+    
+    SELECT * FROM estudiantes;
