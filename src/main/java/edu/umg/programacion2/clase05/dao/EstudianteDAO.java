@@ -12,6 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+//Se necesita para validar el email
+import java.util.regex.Pattern;
+
 /**
  * DAO (Data Access Object): concentra TODO el codigo SQL/JDBC de la tabla
  * estudiantes en un solo lugar. El resto del programa (Main) nunca vuelve a
@@ -27,19 +30,41 @@ public class EstudianteDAO {
 
     private static final String URL = "jdbc:mysql://localhost:3306/prog2_db?useSSL=false&serverTimezone=UTC";
     private static final String USUARIO = "root";
-    private static final String PASSWORD = "tu_password_aqui";
+    private static final String PASSWORD = "Poporopo10";
+    
+    // regex + metodo para validar el formato del email
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[\\w.+-]+@[\\w-]+\\.[a-zA-Z]{2,}$");
+
+    public boolean esEmailValido(String email) {
+        return email != null && EMAIL_PATTERN.matcher(email).matches();
+    }
 
     // 1. CREATE: inserta un estudiante nuevo y retorna el id que le asigno MySQL.
     public int crear(Estudiante estudiante) throws SQLException {
-        String sql = "INSERT INTO estudiantes (nombre, carnet) VALUES (?, ?)";
+       
+    	// valida el email antes de tocar la base de datos
+    	if (!esEmailValido(estudiante.getEmail())) {
+            throw new IllegalArgumentException(
+                    "El email '" + estudiante.getEmail() + "' no tiene un formato valido.");
+        }
 
+    	//solo tenia (nombre, carnet); ahora tiene activo, tipo, email
+        String sql = "INSERT INTO estudiantes (nombre, carnet, activo, tipo, email) VALUES (?, ?, ?, ?, ?)";
+        
         try (Connection conexion = DriverManager.getConnection(URL, USUARIO, PASSWORD);
              PreparedStatement statement = conexion.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             statement.setString(1, estudiante.getNombre());
             statement.setString(2, estudiante.getCarnet());
+            
+            // se llenan los 3 parametros nuevos del INSERT
+            statement.setBoolean(3, estudiante.isActivo());
+            statement.setString(4, estudiante.getTipo());
+            statement.setString(5, estudiante.getEmail());
+            
             statement.executeUpdate();
-
+            
             // IMPORTANTE: RETURN_GENERATED_KEYS + getGeneratedKeys() es como se
             // recupera el id autoincremental que genero MySQL, sin hacer un
             // SELECT aparte para buscarlo.
@@ -54,7 +79,9 @@ public class EstudianteDAO {
 
     // 2. READ (todos): retorna la lista completa de estudiantes.
     public List<Estudiante> listarTodos() throws SQLException {
-        String sql = "SELECT id, nombre, carnet FROM estudiantes ORDER BY id";
+       
+    	//  el SELECT antes solo traia (id, nombre, carnet) se agrego (activo, tipo, email)
+    	String sql = "SELECT id, nombre, carnet, activo, tipo, email FROM estudiantes ORDER BY id";
         List<Estudiante> estudiantes = new ArrayList<>();
 
         try (Connection conexion = DriverManager.getConnection(URL, USUARIO, PASSWORD);
@@ -72,7 +99,9 @@ public class EstudianteDAO {
     // null "silencioso" cuando no se encuentra nada; obliga a quien llama este
     // metodo a manejar explicitamente el caso "no existe".
     public Optional<Estudiante> buscarPorCarnet(String carnet) throws SQLException {
-        String sql = "SELECT id, nombre, carnet FROM estudiantes WHERE carnet = ?";
+        
+    	//  el SELECT antes solo traia (id, nombre, carnet) se agrego (activo, tipo, email)
+    	String sql = "SELECT id, nombre, carnet, activo, tipo, email FROM estudiantes WHERE carnet = ?";
 
         try (Connection conexion = DriverManager.getConnection(URL, USUARIO, PASSWORD);
              PreparedStatement statement = conexion.prepareStatement(sql)) {
@@ -88,6 +117,24 @@ public class EstudianteDAO {
         }
     }
 
+    //  metodo nuevo, para la opcion de menu "Buscar por email"
+    public Optional<Estudiante> buscarPorEmail(String email) throws SQLException {
+        String sql = "SELECT id, nombre, carnet, activo, tipo, email FROM estudiantes WHERE email = ?";
+
+        try (Connection conexion = DriverManager.getConnection(URL, USUARIO, PASSWORD);
+             PreparedStatement statement = conexion.prepareStatement(sql)) {
+
+            statement.setString(1, email);
+
+            try (ResultSet resultado = statement.executeQuery()) {
+                if (resultado.next()) {
+                    return Optional.of(mapearFila(resultado));
+                }
+                return Optional.empty();
+            }
+        }
+    }
+    
     // 4. UPDATE: cambia el nombre de un estudiante existente, identificado por
     // su carnet. Retorna true si se actualizo una fila, false si no existia.
     public boolean actualizarNombre(String carnet, String nuevoNombre) throws SQLException {
@@ -125,6 +172,13 @@ public class EstudianteDAO {
         int id = resultado.getInt("id");
         String nombre = resultado.getString("nombre");
         String carnet = resultado.getString("carnet");
-        return new Estudiante(id, nombre, carnet);
+        
+        // se leen las 3 columnas nuevas del ResultSet (Activo, tipo, email)
+        boolean activo = resultado.getBoolean("activo");
+        String tipo = resultado.getString("tipo");
+        String email = resultado.getString("email");
+        
+        // El new Estudiante ahora recibe los 3 valores nuevos (activo, tipo, email)
+        return new Estudiante(id, nombre, carnet, activo, tipo, email);
     }
 }
